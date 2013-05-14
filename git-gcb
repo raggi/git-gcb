@@ -1,0 +1,75 @@
+#!/bin/sh
+
+USAGE='[-h] [-n|--dry-run] [<remote>] [<base>]'
+LONG_USAGE='git gcb -h
+	print this long help message.
+git gcb [<remote>] [<base>]
+	clean branches against a remote other than origin.
+
+git config [--global] --add gcb.ignore <branch>
+	ignore the given branch for future gcb runs
+git config [--global] --unset gcb.ignore <branch>
+	unignore the given branch for future gcb runs. N.B. if branch is not given, all ignores will be lost.
+git config [--global] gcb.remote <remote>
+	specify the remote to which stale branches must have been merged.
+git config [--global] gcb.base <branch>
+	specify the base branch to which stale branches must have been merged.'
+
+OPTIONS_SPEC=
+. git-sh-setup
+. git-sh-i18n
+
+gcb()
+{
+	set -e
+	git fetch "$remote"
+	git remote prune "$remote"
+
+	for branch in $(git branch -r --merged "$remote/$base" | grep "$remote/" | grep -v "$remote/HEAD"); do
+		for ignore in $(git config --get-all gcb.ignore) "$base" "HEAD"; do
+			if [[ "${branch/$remote\//}" = "${ignore}" ]]; then
+				continue 2
+			fi
+		done
+
+		if [[ 1 = $dry ]]; then
+			echo git push "$remote" ":${branch/$remote\/}"
+		else
+			git push "$remote" ":${branch/$remote\/}"
+		fi
+	done
+
+	git remote prune "$remote"
+}
+
+while [ $# -gt 0 ]; do
+	arg="$1"
+	case "$arg" in
+		--)
+			shift
+			break
+			;;
+		--dry-run|-n)
+			dry=1
+			shift
+			;;
+		*)
+			names=("${names[@]}" "$arg")
+			shift
+			;;
+	esac
+done
+
+remote=${names[0]:-$(git config gcb.remote)}
+remote=${remote:-"origin"}
+
+base=${names[1]:-$(git config gcb.base)}
+base=${base:-"master"}
+
+case "${#names}" in
+	0|1|2)
+		gcb ;;
+	*)
+		usage
+		;;
+esac
