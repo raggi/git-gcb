@@ -64,7 +64,7 @@ remote=${names[0]:-$(git config gcb.remote)}
 remote=${remote:-"origin"}
 
 base=${names[1]:-$(git config gcb.base)}
-base=${base:-"master"}
+base=${base:-"main"}
 
 case "${#names}" in
 	0|1|2)
